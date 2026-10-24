@@ -278,144 +278,6 @@
         </script>
     </head>
     <body class="bg-background text-foreground">
-        
-        <section id="route-calc" class="max-w-7xl mx-auto px-4 pt-6">
-          <div class="rounded-2xl border border-slate-800 bg-[#0F172A]/90 p-5 md:p-6">
-            <h2 class="text-lg font-bold text-sky-400 mb-1">双机场航距与时差测算</h2>
-            <p class="text-xs text-slate-400 mb-4">输入两地 IATA 三字码，测算大圆航距、估算飞行时间与目的地时差（覆盖全球机场数据）。</p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-              <div>
-                <label class="block text-xs text-slate-400 mb-1">起飞机场 (IATA 三字码)</label>
-                <input type="text" id="rc-dep" placeholder="例如: PEK" maxlength="3" autocomplete="off"
-                  class="w-full uppercase p-3 bg-slate-900 border border-slate-700 rounded-xl text-lg font-mono focus:border-sky-500 focus:outline-none text-slate-100">
-                <div id="rc-dep-hint" class="text-xs text-slate-500 mt-1 h-4"></div>
-              </div>
-              <div>
-                <label class="block text-xs text-slate-400 mb-1">降落机场 (IATA 三字码)</label>
-                <input type="text" id="rc-arr" placeholder="例如: LHR" maxlength="3" autocomplete="off"
-                  class="w-full uppercase p-3 bg-slate-900 border border-slate-700 rounded-xl text-lg font-mono focus:border-sky-500 focus:outline-none text-slate-100">
-                <div id="rc-arr-hint" class="text-xs text-slate-500 mt-1 h-4"></div>
-              </div>
-            </div>
-            <button id="rc-btn" class="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white font-medium rounded-xl transition">解算航线数据</button>
-            <div id="rc-err" class="hidden mt-4 text-sm text-red-400"></div>
-            <div id="rc-result" class="hidden mt-6 pt-6 border-t border-slate-800">
-              <div class="grid grid-cols-3 gap-4 text-center">
-                <div class="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
-                  <span class="text-xs text-slate-400 block mb-1">大圆实际航距</span>
-                  <span id="rc-dist" class="text-xl font-bold text-sky-400 font-mono">--</span>
-                </div>
-                <div class="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
-                  <span class="text-xs text-slate-400 block mb-1">估算民航耗时</span>
-                  <span id="rc-time" class="text-xl font-bold text-emerald-400 font-mono">--</span>
-                </div>
-                <div class="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
-                  <span class="text-xs text-slate-400 block mb-1">目的地时差</span>
-                  <span id="rc-tz" class="text-xl font-bold text-amber-400 font-mono">--</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-        <script>
-        (function () {
-          var index = null, loading = null;
-          function ensureData() {
-            if (index) return Promise.resolve(index);
-            if (loading) return loading;
-            loading = fetch('data/airports.json').then(function (r) {
-              if (!r.ok) throw new Error('data load failed');
-              return r.json();
-            }).then(function (raw) {
-              index = {};
-              Object.keys(raw).forEach(function (k) {
-                var a = raw[k];
-                var code = (a.iata || '').toUpperCase();
-                if (code.length === 3 && !index[code]) {
-                  index[code] = { name: a.name || '', city: a.city || '', lat: parseFloat(a.lat), lon: parseFloat(a.lon), tz: a.tz || '' };
-                }
-              });
-              return index;
-            }).catch(function () {
-              loading = null;
-              throw new Error('机场数据文件加载失败，请检查网络后刷新重试');
-            });
-            return loading;
-          }
-          function hint(inputId, hintId) {
-            var el = document.getElementById(inputId), hint = document.getElementById(hintId);
-            function update() {
-              var code = el.value.trim().toUpperCase();
-              if (code.length < 3) { hint.textContent = ''; return; }
-              hint.textContent = '加载中…';
-              ensureData().then(function (idx) {
-                var a = idx[code];
-                hint.textContent = a ? (a.name + ' · ' + a.city) : '未找到该三字码';
-              }).catch(function () { hint.textContent = ''; });
-            }
-            el.addEventListener('input', update);
-            el.addEventListener('focus', function () { ensureData().catch(function () {}); });
-          }
-          hint('rc-dep', 'rc-dep-hint');
-          hint('rc-arr', 'rc-arr-hint');
-          function tzOffsetMin(iana, date) {
-            try {
-              var parts = new Intl.DateTimeFormat('en-US', { timeZone: iana, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(date);
-              var o = {};
-              parts.forEach(function (p) { o[p.type] = p.value; });
-              var h = parseInt(o.hour, 10); if (h === 24) h = 0;
-              var asUTC = Date.UTC(+o.year, +o.month - 1, +o.day, h, +o.minute, +o.second);
-              return Math.round((asUTC - date.getTime()) / 60000);
-            } catch (e) { return null; }
-          }
-          function fmtDiff(min) {
-            if (min === 0) return '无时差';
-            var sign = min > 0 ? '+' : '-', a = Math.abs(min);
-            var h = Math.floor(a / 60), m = a % 60;
-            return sign + h + '小时' + (m ? m + '分' : '');
-          }
-          function haversine(lat1, lon1, lat2, lon2) {
-            var R = 6371, dLat = (lat2 - lat1) * Math.PI / 180, dLon = (lon2 - lon1) * Math.PI / 180;
-            var s = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
-          }
-          document.getElementById('rc-btn').addEventListener('click', function () {
-            var err = document.getElementById('rc-err'), res = document.getElementById('rc-result');
-            err.classList.add('hidden'); res.classList.add('hidden');
-            var dCode = document.getElementById('rc-dep').value.trim().toUpperCase();
-            var aCode = document.getElementById('rc-arr').value.trim().toUpperCase();
-            ensureData().then(function (idx) {
-              var dep = idx[dCode], arr = idx[aCode];
-              if (!dep || !arr) {
-                err.textContent = '起降机场必须为全球库中现有的有效三字码';
-                err.classList.remove('hidden');
-                return;
-              }
-              var km = Math.round(haversine(dep.lat, dep.lon, arr.lat, arr.lon));
-              var hours = km / 850, h = Math.floor(hours), m = Math.round((hours - h) * 60);
-              if (m === 60) { h += 1; m = 0; }
-              var now = new Date();
-              var o1 = dep.tz ? tzOffsetMin(dep.tz, now) : null;
-              var o2 = arr.tz ? tzOffsetMin(arr.tz, now) : null;
-              var tzText;
-              if (o1 === null || o2 === null) {
-                var est = Math.round((arr.lon - dep.lon) / 15 * 2) / 2;
-                tzText = fmtDiff(Math.round(est * 60)) + '（经度估算）';
-              } else {
-                tzText = fmtDiff(o2 - o1);
-              }
-              document.getElementById('rc-dist').textContent = km.toLocaleString() + ' km';
-              document.getElementById('rc-time').textContent = h + 'h ' + m + 'm';
-              document.getElementById('rc-tz').textContent = tzText;
-              res.classList.remove('hidden');
-            }).catch(function (e) {
-              err.textContent = e.message;
-              err.classList.remove('hidden');
-            });
-          });
-        })();
-        </script>
-
         <div id="root"></div>
         <script>
             var App = (() => {
@@ -990,7 +852,7 @@
       { id: "all", label: "\u7EFC\u5408\u901F\u67E5", icon: Search },
       { id: "airports", label: `\u5168\u7403\u673A\u573A (${airports.length})`, icon: MapPin },
       { id: "airlines", label: `\u822A\u7A7A\u516C\u53F8 (${airlines.length})`, icon: Plane },
-      { id: "decoder", label: "\u822A\u7EBF\u89E3\u6790\u4E0E\u6D4B\u8DDD", icon: Route },
+      { id: "decoder", label: "\u822A\u7EBF\u89E3\u6790\u4E0E\u6D4B\u8DDD", icon: Route }, { id: "calc", label: "航距时差", icon: Compass },
       { id: "bookmarks", label: `\u6536\u85CF\u5939 (${bookmarks.length})`, icon: Bookmark },
       { id: "reference", label: "\u7F16\u7801\u767E\u79D1 & \u53C2\u8003\u7AD9", icon: BookOpen }
     ].map((tab) => {
@@ -1026,7 +888,7 @@
       { id: "all", label: "\u7EFC\u5408\u67E5\u8BE2" },
       { id: "airports", label: "\u673A\u573A\u4E09\u5B57\u7801" },
       { id: "airlines", label: "\u822A\u53F8\u4E8C\u5B57\u7801" },
-      { id: "decoder", label: "\u822A\u7EBF\u6279\u91CF\u89E3\u6790" },
+      { id: "decoder", label: "\u822A\u7EBF\u6279\u91CF\u89E3\u6790" }, { id: "calc", label: "航距时差" },
       { id: "bookmarks", label: `\u6536\u85CF(${bookmarks.length})` },
       { id: "reference", label: "\u53C2\u8003\u7F51\u7AD9" }
     ].map((tab) => /* @__PURE__ */ import_react3.default.createElement(
@@ -1157,7 +1019,7 @@
           /* @__PURE__ */ import_react3.default.createElement(Star, { className: `w-3.5 h-3.5 ${isBookmarked ? "fill-amber-400" : ""}` })
         ))), /* @__PURE__ */ import_react3.default.createElement("div", { className: "flex items-center justify-between gap-2 mb-3" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ import_react3.default.createElement("h3", { className: "font-bold text-base leading-snug truncate" }, al.nameZh), /* @__PURE__ */ import_react3.default.createElement("p", { className: `text-xs truncate ${darkMode ? "text-slate-400" : "text-slate-500"}` }, al.nameEn)), /* @__PURE__ */ import_react3.default.createElement("span", { className: `shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full border flex items-center gap-1.5 ${darkMode ? allianceStyle.bg : allianceStyle.lightBg}` }, /* @__PURE__ */ import_react3.default.createElement("span", { className: `w-1.5 h-1.5 rounded-full ${allianceStyle.dot}` }), al.alliance)), /* @__PURE__ */ import_react3.default.createElement("div", { className: `border-t border-dashed my-3 ${darkMode ? "border-slate-800" : "border-slate-200"}` }), /* @__PURE__ */ import_react3.default.createElement("div", { className: "flex items-center justify-between text-xs" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "flex items-center gap-1.5 font-mono" }, /* @__PURE__ */ import_react3.default.createElement(Radio, { className: "w-3.5 h-3.5 text-emerald-400" }), /* @__PURE__ */ import_react3.default.createElement("span", { className: darkMode ? "text-slate-400" : "text-slate-500" }, "\u547C\u53F7:"), /* @__PURE__ */ import_react3.default.createElement("span", { className: "font-semibold text-emerald-400" }, al.callsign)), /* @__PURE__ */ import_react3.default.createElement("div", { className: "font-mono text-[11px] truncate max-w-[130px]", title: `\u4E3B\u57FA\u5730: ${al.hub}` }, "\u57FA\u5730: ", /* @__PURE__ */ import_react3.default.createElement("span", { className: "font-semibold" }, al.hub))))
       );
-    })))), activeTab === "decoder" && /* @__PURE__ */ import_react3.default.createElement("div", { className: "space-y-6" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: `rounded-2xl p-6 border ${darkMode ? "bg-[#0F172A] border-slate-800" : "bg-white border-slate-200 shadow-sm"}` }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4" }, /* @__PURE__ */ import_react3.default.createElement("div", null, /* @__PURE__ */ import_react3.default.createElement("span", { className: "text-xs font-mono uppercase text-sky-400" }, "GREAT CIRCLE ROUTE DECODER"), /* @__PURE__ */ import_react3.default.createElement("h2", { className: "text-xl font-bold mt-0.5" }, "\u822A\u7EBF\u4E09\u5B57\u7801\u6279\u91CF\u89E3\u6790 & \u5927\u5706\u822A\u7EBF\u6D4B\u8DDD\u5DE5\u5177")), /* @__PURE__ */ import_react3.default.createElement("div", { className: "flex flex-wrap gap-1.5" }, [
+    })))), activeTab === "calc" && /* @__PURE__ */ import_react3.default.createElement("div", { id: "rc-slot", className: "space-y-6" }), activeTab === "decoder" && /* @__PURE__ */ import_react3.default.createElement("div", { className: "space-y-6" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: `rounded-2xl p-6 border ${darkMode ? "bg-[#0F172A] border-slate-800" : "bg-white border-slate-200 shadow-sm"}` }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4" }, /* @__PURE__ */ import_react3.default.createElement("div", null, /* @__PURE__ */ import_react3.default.createElement("span", { className: "text-xs font-mono uppercase text-sky-400" }, "GREAT CIRCLE ROUTE DECODER"), /* @__PURE__ */ import_react3.default.createElement("h2", { className: "text-xl font-bold mt-0.5" }, "\u822A\u7EBF\u4E09\u5B57\u7801\u6279\u91CF\u89E3\u6790 & \u5927\u5706\u822A\u7EBF\u6D4B\u8DDD\u5DE5\u5177")), /* @__PURE__ */ import_react3.default.createElement("div", { className: "flex flex-wrap gap-1.5" }, [
       { label: "\u4E9A\u6B27\u7F8E\u73AF\u7403\u7EBF", val: "PEK - HKG - SIN - DXB - LHR - JFK - LAX" },
       { label: "\u4EAC\u6CAA\u5E7F\u6DF1\u5E72\u7EBF", val: "PEK - SHA - CAN - SZX - CTU - PKX" },
       { label: "\u4E1C\u4E9A\u65E5\u97E9\u7CBE\u54C1\u7EBF", val: "PVG - HND - ICN - TPE - HKG" }
@@ -3047,5 +2909,135 @@ react/cjs/react.development.js:
                 root.render(AppComponent);
             });
         </script>
+    
+        <script>
+        (function () {
+          var index = null, loading = null;
+          function ensureData() {
+            if (index) return Promise.resolve(index);
+            if (loading) return loading;
+            loading = fetch('data/airports.json').then(function (r) {
+              if (!r.ok) throw new Error('data load failed');
+              return r.json();
+            }).then(function (raw) {
+              index = {};
+              Object.keys(raw).forEach(function (k) {
+                var a = raw[k];
+                var code = (a.iata || '').toUpperCase();
+                if (code.length === 3 && !index[code]) {
+                  index[code] = { name: a.name || '', city: a.city || '', lat: parseFloat(a.lat), lon: parseFloat(a.lon), tz: a.tz || '' };
+                }
+              });
+              return index;
+            }).catch(function () {
+              loading = null;
+              throw new Error('机场数据文件加载失败，请检查网络后刷新重试');
+            });
+            return loading;
+          }
+          function tzOffsetMin(iana, date) {
+            try {
+              var parts = new Intl.DateTimeFormat('en-US', { timeZone: iana, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(date);
+              var o = {};
+              parts.forEach(function (p) { o[p.type] = p.value; });
+              var h = parseInt(o.hour, 10); if (h === 24) h = 0;
+              var asUTC = Date.UTC(+o.year, +o.month - 1, +o.day, h, +o.minute, +o.second);
+              return Math.round((asUTC - date.getTime()) / 60000);
+            } catch (e) { return null; }
+          }
+          function fmtDiff(min) {
+            if (min === 0) return '无时差';
+            var sign = min > 0 ? '+' : '-', a = Math.abs(min);
+            var h = Math.floor(a / 60), m = a % 60;
+            return sign + h + '小时' + (m ? m + '分' : '');
+          }
+          function haversine(lat1, lon1, lat2, lon2) {
+            var R = 6371, dLat = (lat2 - lat1) * Math.PI / 180, dLon = (lon2 - lon1) * Math.PI / 180;
+            var s = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+          }
+          function buildCalc(slot) {
+            slot.innerHTML =
+              '<div class="rounded-2xl p-6 border bg-[#0F172A] border-slate-800">' +
+              '<h2 class="text-lg font-bold text-sky-400 mb-1">双机场航距与时差测算</h2>' +
+              '<p class="text-xs text-slate-400 mb-4">输入两地 IATA 三字码，测算大圆航距、估算飞行时间与目的地时差（覆盖全球机场数据）。</p>' +
+              '<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">' +
+              '<div><label class="block text-xs text-slate-400 mb-1">起飞机场 (IATA 三字码)</label>' +
+              '<input type="text" id="rc-dep" placeholder="例如: PEK" maxlength="3" autocomplete="off" class="w-full uppercase p-3 bg-slate-900 border border-slate-700 rounded-xl text-lg font-mono focus:border-sky-500 focus:outline-none text-slate-100">' +
+              '<div id="rc-dep-hint" class="text-xs text-slate-500 mt-1 h-4"></div></div>' +
+              '<div><label class="block text-xs text-slate-400 mb-1">降落机场 (IATA 三字码)</label>' +
+              '<input type="text" id="rc-arr" placeholder="例如: LHR" maxlength="3" autocomplete="off" class="w-full uppercase p-3 bg-slate-900 border border-slate-700 rounded-xl text-lg font-mono focus:border-sky-500 focus:outline-none text-slate-100">' +
+              '<div id="rc-arr-hint" class="text-xs text-slate-500 mt-1 h-4"></div></div></div>' +
+              '<button id="rc-btn" class="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white font-medium rounded-xl transition">解算航线数据</button>' +
+              '<div id="rc-err" class="hidden mt-4 text-sm text-red-400"></div>' +
+              '<div id="rc-result" class="hidden mt-6 pt-6 border-t border-slate-800"><div class="grid grid-cols-3 gap-4 text-center">' +
+              '<div class="p-3 bg-slate-900/60 rounded-xl border border-slate-800"><span class="text-xs text-slate-400 block mb-1">大圆实际航距</span><span id="rc-dist" class="text-xl font-bold text-sky-400 font-mono">--</span></div>' +
+              '<div class="p-3 bg-slate-900/60 rounded-xl border border-slate-800"><span class="text-xs text-slate-400 block mb-1">估算民航耗时</span><span id="rc-time" class="text-xl font-bold text-emerald-400 font-mono">--</span></div>' +
+              '<div class="p-3 bg-slate-900/60 rounded-xl border border-slate-800"><span class="text-xs text-slate-400 block mb-1">目的地时差</span><span id="rc-tz" class="text-xl font-bold text-amber-400 font-mono">--</span></div>' +
+              '</div></div></div>';
+            function hint(inputId, hintId) {
+              var el = document.getElementById(inputId), hint = document.getElementById(hintId);
+              function update() {
+                var code = el.value.trim().toUpperCase();
+                if (code.length < 3) { hint.textContent = ''; return; }
+                hint.textContent = '加载中…';
+                ensureData().then(function (idx) {
+                  var a = idx[code];
+                  hint.textContent = a ? (a.name + ' · ' + a.city) : '未找到该三字码';
+                }).catch(function () { hint.textContent = ''; });
+              }
+              el.addEventListener('input', update);
+              el.addEventListener('focus', function () { ensureData().catch(function () {}); });
+            }
+            hint('rc-dep', 'rc-dep-hint');
+            hint('rc-arr', 'rc-arr-hint');
+            document.getElementById('rc-btn').addEventListener('click', function () {
+              var err = document.getElementById('rc-err'), res = document.getElementById('rc-result');
+              err.classList.add('hidden'); res.classList.add('hidden');
+              var dCode = document.getElementById('rc-dep').value.trim().toUpperCase();
+              var aCode = document.getElementById('rc-arr').value.trim().toUpperCase();
+              ensureData().then(function (idx) {
+                var dep = idx[dCode], arr = idx[aCode];
+                if (!dep || !arr) {
+                  err.textContent = '起降机场必须为全球库中现有的有效三字码';
+                  err.classList.remove('hidden');
+                  return;
+                }
+                var km = Math.round(haversine(dep.lat, dep.lon, arr.lat, arr.lon));
+                var hours = km / 850, h = Math.floor(hours), m = Math.round((hours - h) * 60);
+                if (m === 60) { h += 1; m = 0; }
+                var now = new Date();
+                var o1 = dep.tz ? tzOffsetMin(dep.tz, now) : null;
+                var o2 = arr.tz ? tzOffsetMin(arr.tz, now) : null;
+                var tzText;
+                if (o1 === null || o2 === null) {
+                  var est = Math.round((arr.lon - dep.lon) / 15 * 2) / 2;
+                  tzText = fmtDiff(Math.round(est * 60)) + '（经度估算）';
+                } else {
+                  tzText = fmtDiff(o2 - o1);
+                }
+                document.getElementById('rc-dist').textContent = km.toLocaleString() + ' km';
+                document.getElementById('rc-time').textContent = h + 'h ' + m + 'm';
+                document.getElementById('rc-tz').textContent = tzText;
+                res.classList.remove('hidden');
+              }).catch(function (e) {
+                err.textContent = e.message;
+                err.classList.remove('hidden');
+              });
+            });
+          }
+          function scan() {
+            var slot = document.getElementById('rc-slot');
+            if (slot && !slot.dataset.rcInit) {
+              slot.dataset.rcInit = '1';
+              buildCalc(slot);
+            }
+          }
+          var mo = new MutationObserver(scan);
+          mo.observe(document.documentElement, { childList: true, subtree: true });
+          scan();
+        })();
+        </script>
+    
     </body>
 </html>
