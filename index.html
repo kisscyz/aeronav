@@ -669,7 +669,42 @@
     "\u661F\u7A7A\u8054\u76DF(\u4F18\u8FDE\u4F19\u4F34)": { bg: "bg-amber-500/10 text-amber-200 border-amber-500/20", lightBg: "bg-amber-50/70 text-amber-700 border-amber-200", dot: "bg-amber-300", en: "Connecting Partner" },
     "\u72EC\u7ACB\u822A\u53F8": { bg: "bg-slate-500/15 text-slate-300 border-slate-500/30", lightBg: "bg-slate-100 text-slate-700 border-slate-300", dot: "bg-slate-400", en: "Independent" }
   };
-  function App() {
+  
+  function apMatchScore(ap, q) {
+    if (!q) return 0;
+    var iata = (ap.iata || "").toLowerCase();
+    var icao = (ap.icao || "").toLowerCase();
+    if (iata === q) return 100;
+    if (icao === q) return 95;
+    if (iata.indexOf(q) === 0) return 90;
+    if (icao.indexOf(q) === 0) return 85;
+    var zh = (ap.nameZh || "").toLowerCase();
+    var en = (ap.nameEn || "").toLowerCase();
+    if (zh === q || en === q) return 80;
+    if (zh.indexOf(q) === 0 || en.indexOf(q) === 0) return 70;
+    var city = (ap.city || "").toLowerCase();
+    var country = (ap.country || "").toLowerCase();
+    if (city.indexOf(q) === 0 || country.indexOf(q) === 0) return 60;
+    return 50;
+  }
+  function alMatchScore(al, q) {
+    if (!q) return 0;
+    var iata = (al.iata || "").toLowerCase();
+    var icao = (al.icao || "").toLowerCase();
+    if (iata === q) return 100;
+    if (icao === q) return 95;
+    if (al.prefix && al.prefix === q) return 90;
+    var cs = (al.callsign || "").toLowerCase();
+    if (cs && cs === q) return 85;
+    if (iata.indexOf(q) === 0) return 80;
+    if (icao.indexOf(q) === 0) return 75;
+    var zh = (al.nameZh || "").toLowerCase();
+    var en = (al.nameEn || "").toLowerCase();
+    if (zh === q || en === q) return 70;
+    if (zh.indexOf(q) === 0 || en.indexOf(q) === 0) return 60;
+    return 50;
+  }
+function App() {
     const [darkMode, setDarkMode] = (0, import_react3.useState)(true);
     const [airports, setAirports] = (0, import_react3.useState)(INITIAL_AIRPORTS);
     const [airlines, setAirlines] = (0, import_react3.useState)(INITIAL_AIRLINES);
@@ -753,7 +788,7 @@
         if (!q)
           return true;
         return ap.iata.toLowerCase().includes(q) || ap.icao.toLowerCase().includes(q) || ap.nameZh.toLowerCase().includes(q) || ap.nameEn.toLowerCase().includes(q) || ap.city.toLowerCase().includes(q) || ap.country.toLowerCase().includes(q);
-      });
+      }).sort((a, b) => apMatchScore(b, q) - apMatchScore(a, q));
     }, [airports, searchQuery, selectedRegion]);
     const filteredAirlines = (0, import_react3.useMemo)(() => {
       const q = searchQuery.trim().toLowerCase();
@@ -764,7 +799,7 @@
         if (!q)
           return true;
         return al.iata.toLowerCase().includes(q) || al.icao.toLowerCase().includes(q) || al.callsign.toLowerCase().includes(q) || al.nameZh.toLowerCase().includes(q) || al.nameEn.toLowerCase().includes(q) || al.country.toLowerCase().includes(q) || al.prefix && al.prefix.includes(q);
-      });
+      }).sort((a, b) => alMatchScore(b, q) - alMatchScore(a, q));
     }, [airlines, searchQuery, selectedAlliance]);
     const decodedRoute = (0, import_react3.useMemo)(() => {
       const tokens = routeInput.toUpperCase().split(/[\s,\->/→|]+/).filter(Boolean);
@@ -1019,7 +1054,7 @@
           /* @__PURE__ */ import_react3.default.createElement(Star, { className: `w-3.5 h-3.5 ${isBookmarked ? "fill-amber-400" : ""}` })
         ))), /* @__PURE__ */ import_react3.default.createElement("div", { className: "flex items-center justify-between gap-2 mb-3" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "min-w-0" }, /* @__PURE__ */ import_react3.default.createElement("h3", { className: "font-bold text-base leading-snug truncate" }, al.nameZh), /* @__PURE__ */ import_react3.default.createElement("p", { className: `text-xs truncate ${darkMode ? "text-slate-400" : "text-slate-500"}` }, al.nameEn)), /* @__PURE__ */ import_react3.default.createElement("span", { className: `shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full border flex items-center gap-1.5 ${darkMode ? allianceStyle.bg : allianceStyle.lightBg}` }, /* @__PURE__ */ import_react3.default.createElement("span", { className: `w-1.5 h-1.5 rounded-full ${allianceStyle.dot}` }), al.alliance)), /* @__PURE__ */ import_react3.default.createElement("div", { className: `border-t border-dashed my-3 ${darkMode ? "border-slate-800" : "border-slate-200"}` }), /* @__PURE__ */ import_react3.default.createElement("div", { className: "flex items-center justify-between text-xs" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "flex items-center gap-1.5 font-mono" }, /* @__PURE__ */ import_react3.default.createElement(Radio, { className: "w-3.5 h-3.5 text-emerald-400" }), /* @__PURE__ */ import_react3.default.createElement("span", { className: darkMode ? "text-slate-400" : "text-slate-500" }, "\u547C\u53F7:"), /* @__PURE__ */ import_react3.default.createElement("span", { className: "font-semibold text-emerald-400" }, al.callsign)), /* @__PURE__ */ import_react3.default.createElement("div", { className: "font-mono text-[11px] truncate max-w-[130px]", title: `\u4E3B\u57FA\u5730: ${al.hub}` }, "\u57FA\u5730: ", /* @__PURE__ */ import_react3.default.createElement("span", { className: "font-semibold" }, al.hub))))
       );
-    })))), activeTab === "decoder" && /* @__PURE__ */ import_react3.default.createElement("div", { className: "space-y-6" }, /* @__PURE__ */ import_react3.default.createElement("div", { id: "rc-slot" }), /* @__PURE__ */ import_react3.default.createElement("div", { className: `rounded-2xl p-6 border ${darkMode ? "bg-[#0F172A] border-slate-800" : "bg-white border-slate-200 shadow-sm"}` }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4" }, /* @__PURE__ */ import_react3.default.createElement("div", null, /* @__PURE__ */ import_react3.default.createElement("span", { className: "text-xs font-mono uppercase text-sky-400" }, "GREAT CIRCLE ROUTE DECODER"), /* @__PURE__ */ import_react3.default.createElement("h2", { className: "text-xl font-bold mt-0.5" }, "\u822A\u7EBF\u4E09\u5B57\u7801\u6279\u91CF\u89E3\u6790 & \u5927\u5706\u822A\u7EBF\u6D4B\u8DDD\u5DE5\u5177")), /* @__PURE__ */ import_react3.default.createElement("div", { className: "flex flex-wrap gap-1.5" }, [
+    })))), activeTab === "decoder" && /* @__PURE__ */ import_react3.default.createElement("div", { className: "space-y-6" }, /* @__PURE__ */ import_react3.default.createElement("div", { className: `rounded-2xl p-6 border ${darkMode ? "bg-[#0F172A] border-slate-800" : "bg-white border-slate-200 shadow-sm"}` }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4" }, /* @__PURE__ */ import_react3.default.createElement("div", null, /* @__PURE__ */ import_react3.default.createElement("span", { className: "text-xs font-mono uppercase text-sky-400" }, "GREAT CIRCLE ROUTE DECODER"), /* @__PURE__ */ import_react3.default.createElement("h2", { className: "text-xl font-bold mt-0.5" }, "\u822A\u7EBF\u4E09\u5B57\u7801\u6279\u91CF\u89E3\u6790 & \u5927\u5706\u822A\u7EBF\u6D4B\u8DDD\u5DE5\u5177")), /* @__PURE__ */ import_react3.default.createElement("div", { className: "flex flex-wrap gap-1.5" }, [
       { label: "\u4E9A\u6B27\u7F8E\u73AF\u7403\u7EBF", val: "PEK - HKG - SIN - DXB - LHR - JFK - LAX" },
       { label: "\u4EAC\u6CAA\u5E7F\u6DF1\u5E72\u7EBF", val: "PEK - SHA - CAN - SZX - CTU - PKX" },
       { label: "\u4E1C\u4E9A\u65E5\u97E9\u7CBE\u54C1\u7EBF", val: "PVG - HND - ICN - TPE - HKG" }
@@ -1075,7 +1110,7 @@
       /* @__PURE__ */ import_react3.default.createElement("div", { className: "flex items-center justify-between" }, /* @__PURE__ */ import_react3.default.createElement("span", { className: "font-mono font-black text-lg text-amber-400" }, item.code), item.found && /* @__PURE__ */ import_react3.default.createElement("span", { className: "text-[11px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300" }, "ICAO: ", item.found.icao, " / ", item.found.prefix)),
       /* @__PURE__ */ import_react3.default.createElement("div", { className: "text-sm font-bold mt-1" }, item.found ? item.found.nameZh : "\u672A\u5339\u914D\u5230\u822A\u53F8"),
       item.found && /* @__PURE__ */ import_react3.default.createElement("div", { className: "text-xs text-slate-400 mt-0.5 flex items-center justify-between" }, /* @__PURE__ */ import_react3.default.createElement("span", null, item.found.alliance), /* @__PURE__ */ import_react3.default.createElement("span", { className: "font-mono text-emerald-400" }, item.found.callsign))
-    ))))), activeTab === "bookmarks" && /* @__PURE__ */ import_react3.default.createElement("div", { className: `rounded-2xl p-6 border ${darkMode ? "bg-[#0F172A] border-slate-800" : "bg-white border-slate-200"}` }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ import_react3.default.createElement("div", null, /* @__PURE__ */ import_react3.default.createElement("h2", { className: "text-xl font-bold flex items-center gap-2" }, /* @__PURE__ */ import_react3.default.createElement(Star, { className: "w-5 h-5 text-amber-400 fill-amber-400" }), /* @__PURE__ */ import_react3.default.createElement("span", null, "\u6211\u7684\u5E38\u7528\u4EE3\u7801\u6536\u85CF\u5939")), /* @__PURE__ */ import_react3.default.createElement("p", { className: `text-xs mt-1 ${darkMode ? "text-slate-400" : "text-slate-500"}` }, "\u70B9\u51FB\u4EFB\u610F\u5361\u7247\u53F3\u4E0A\u89D2\u7684\u661F\u6807\u5373\u53EF\u5C06\u5E38\u7528\u7684\u67A2\u7EBD\u673A\u573A\u6216\u822A\u53F8\u4FDD\u5B58\u5728\u6B64\u5904\uFF0C\u65B9\u4FBF\u65E5\u5E38\u5236\u5355\u6216\u67E5\u7968\u3002")), bookmarks.length > 0 && /* @__PURE__ */ import_react3.default.createElement(
+    ))))), activeTab === "decoder" && /* @__PURE__ */ import_react3.default.createElement("div", { id: "rc-slot", className: "mt-6" }), activeTab === "bookmarks" && /* @__PURE__ */ import_react3.default.createElement("div", { className: `rounded-2xl p-6 border ${darkMode ? "bg-[#0F172A] border-slate-800" : "bg-white border-slate-200"}` }, /* @__PURE__ */ import_react3.default.createElement("div", { className: "flex items-center justify-between mb-6" }, /* @__PURE__ */ import_react3.default.createElement("div", null, /* @__PURE__ */ import_react3.default.createElement("h2", { className: "text-xl font-bold flex items-center gap-2" }, /* @__PURE__ */ import_react3.default.createElement(Star, { className: "w-5 h-5 text-amber-400 fill-amber-400" }), /* @__PURE__ */ import_react3.default.createElement("span", null, "\u6211\u7684\u5E38\u7528\u4EE3\u7801\u6536\u85CF\u5939")), /* @__PURE__ */ import_react3.default.createElement("p", { className: `text-xs mt-1 ${darkMode ? "text-slate-400" : "text-slate-500"}` }, "\u70B9\u51FB\u4EFB\u610F\u5361\u7247\u53F3\u4E0A\u89D2\u7684\u661F\u6807\u5373\u53EF\u5C06\u5E38\u7528\u7684\u67A2\u7EBD\u673A\u573A\u6216\u822A\u53F8\u4FDD\u5B58\u5728\u6B64\u5904\uFF0C\u65B9\u4FBF\u65E5\u5E38\u5236\u5355\u6216\u67E5\u7968\u3002")), bookmarks.length > 0 && /* @__PURE__ */ import_react3.default.createElement(
       "button",
       {
         onClick: () => setBookmarks([]),
